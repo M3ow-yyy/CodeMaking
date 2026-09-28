@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Code Writer</title>
+    <style>
+        * {
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+        html,body{
+            height:100%;
+            font-family:system-ui, -apple-system, sans-serif;
+            background:#1e1e2e;
+            color:#fff;
+            overflow:hidden;
+        }
+        .app-wrap{
+            display:flex;
+            flex-direction:column;
+            height:100vh;
+        }
+        header{
+            display:flex;
+            align-items:center;
+            padding:10px 12px;
+            background:#28283b;
+            gap:12px;
+        }
+        .btn-plus{
+            width:36px;
+            height:36px;
+            border-radius:8px;
+            border:none;
+            background:#4185f4;
+            color:white;
+            font-size:22px;
+            cursor:pointer;
+        }
+        .header-title{
+            font-size:17px;
+            font-weight:500;
+        }
+        .main-container{
+            flex:1;
+            display:flex;
+            flex-direction:column;
+            overflow:hidden;
+        }
+        .tab-bar{
+            display:flex;
+            background:#252538;
+        }
+        .tab{
+            flex:1;
+            padding:9px;
+            text-align:center;
+            border:none;
+            background:transparent;
+            color:#ccccdd;
+            font-size:15px;
+        }
+        .tab.active{
+            background:#1e1e2e;
+            color:#60a5fa;
+        }
+        .panel-wrap{
+            flex:1;
+            overflow:hidden;
+            position:relative;
+        }
+        .panel{
+            width:100%;
+            height:100%;
+            display:none;
+            overflow:auto;
+            padding:10px;
+        }
+        .panel.active{
+            display:block;
+        }
+        /*聊天面板*/
+        .chat-area{
+            padding-bottom:8px;
+        }
+        .msg-item{
+            padding:10px;
+            margin-bottom:10px;
+            border-radius:10px;
+            max-width:96%;
+        }
+        .user-msg{
+            background:#2b4162;
+            margin-left:auto;
+        }
+        .ai-msg{
+            background:#37374e;
+            margin-right:auto;
+        }
+        .apply-code-btn{
+            margin-top:8px;
+            padding:6px 10px;
+            background:#22c55e;
+            border:none;
+            border-radius:6px;
+            color:white;
+        }
+        /*====代码编辑器（带左侧行号）====*/
+        .code-top-bar{
+            display:flex;
+            gap:8px;
+            margin-bottom:10px;
+        }
+        .code-top-bar button{
+            padding:7px 10px;
+            border:none;
+            border-radius:6px;
+        }
+        .btn-del-all{
+            background:#ef4444;
+            color:white;
+        }
+        .btn-import{
+            background:#3b82f6;
+            color:white;
+        }
+        .btn-save-html{
+            background:#10b981;
+            color:white;
+        }
+        .code-container{
+            display:flex;
+            background:#111111;
+            border-radius:8px;
+            overflow:hidden;
+        }
+        .line-numbers{
+            background:#222;
+            color:#94a3b8;
+            font-family:monospace;
+            font-size:13px;
+            padding:12px 6px;
+            text-align:right;
+            min-width:42px;
+            user-select:none;
+            line-height:1.55;
+        }
+        #codeEditor{
+            flex:1;
+            min-height:420px;
+            background:#111;
+            color:#e2e8f0;
+            padding:12px;
+            border:0;
+            font-family:monospace;
+            font-size:13px;
+            line-height:1.55;
+            resize:none;
+        }
+        /*预览iframe*/
+        #previewIframe{
+            width:100%;
+            height:calc(100vh - 220px);
+            background:#fff;
+            border-radius:8px;
+            border:none;
+        }
+        .error-log{
+            margin-top:10px;
+            background:#2c1414;
+            padding:8px;
+            color:#ff8787;
+            font-size:13px;
+        }
+        /*底部输入区域*/
+        .input-footer{
+            padding:10px;
+            background:#28283b;
+            display:flex;
+            gap:8px;
+            align-items:flex-end;
+        }
+        #chatInput{
+            flex:1;
+            min-height:44px;
+            max-height:110px;
+            border-radius:8px;
+            border:none;
+            padding:10px;
+            background:#36364e;
+            color:white;
+        }
+        .send-btn,.img-btn{
+            width:42px;
+            height:42px;
+            border-radius:8px;
+            border:none;
+            color:white;
+        }
+        .send-btn{
+            background:#2563eb;
+        }
+        .img-btn{
+            background:#7c3aed;
+        }
+        /*弹窗样式*/
+        .modal-overlay{
+            position:fixed;
+            inset:0;
+            background:rgba(0,0,0,0.75);
+            display:none;
+            z-index:999;
+            align-items:center;
+            justify-content:center;
+            padding:14px;
+        }
+        .modal-overlay.show{
+            display:flex;
+        }
+        .modal-content{
+            width:100%;
+            max-width:520px;
+            background:#27273a;
+            border-radius:12px;
+            padding:18px;
+        }
+        .modal-content input, .modal-content select, .modal-content textarea{
+            width:100%;
+            padding:10px;
+            margin:7px 0;
+            background:#33334a;
+            border:none;
+            border-radius:7px;
+            color:white;
+        }
+        .modal-btn-row{
+            display:flex;
+            gap:10px;
+            margin-top:12px;
+        }
+        .modal-btn-row button{
+            flex:1;
+            padding:9px;
+            border-radius:7px;
+            border:none;
+        }
+        .btn-test{
+            background:#0891b2;
+            color:white;
+        }
+        .btn-save-conf{
+            background:#16a34a;
+            color:white;
+        }
+        .btn-close-modal{
+            background:#444;
+            color:white;
+        }
+        .hidden-file{
+            display:none;
+        }
+    </style>
+</head>
+<body>
+<div class="app-wrap">
+    <header>
+        <button class="btn-plus" id="openConfigBtn">+</button>
+        <div class="header-title">AI代码生成编辑器</div>
+    </header>
+    <div class="main-container">
+        <div class="tab-bar">
+            <button class="tab active" data-tab="chat">对话</button>
+            <button class="tab" data-tab="code">代码区</button>
+            <button class="tab" data-tab="preview">预览区</button>
+        </div>
+        <div class="panel-wrap">
+            <div class="panel active" id="panel-chat">
+                <div class="chat-area" id="chatContainer"></div>
+            </div>
+            <div class="panel" id="panel-code">
+                <div class="code-top-bar">
+                    <button class="btn-del-all" id="clearCodeBtn">🗑 删除全部</button>
+                    <button class="btn-import" id="importHtmlBtn">📥导入HTML</button>
+                    <input class="hidden-file" id="importFileInput" type="file" accept=".html,.htm"/>
+                    <button class="btn-save-html" id="exportHtmlBtn">💾保存HTML</button>
+                </div>
+                <div class="code-container">
+                    <div class="line-numbers" id="lineNumberBox"></div>
+                    <textarea id="codeEditor"></textarea>
+                </div>
+            </div>
+            <div class="panel" id="panel-preview">
+                <iframe id="previewIframe" sandbox="allow-scripts"></iframe>
+                <div class="error-log" id="errorLogBox"></div>
+            </div>
+        </div>
+    </div>
+    <div class="input-footer">
+        <button class="img-btn" id="uploadImgBtn">🖼</button>
+        <input type="file" id="imgFileInput" accept="image/*" class="hidden-file">
+        <textarea id="chatInput" placeholder="输入你的需求，让AI生成网页代码..."></textarea>
+        <button class="send-btn" id="sendBtn">➤</button>
+    </div>
+</div>
+
+<!--配置弹窗-->
+<div class="modal-overlay" id="configModal">
+    <div class="modal-content">
+        <h3>API 设置</h3>
+        <label>API URL(兼容OpenAI)</label>
+        <input id="apiUrlInput" placeholder="例如 https://ark.cn-beijing.volces.com/api/v1"/>
+        <label>API‑Key</label>
+        <input id="apiKeyInput" placeholder="sk‑xxxx"/>
+        <label>模型</label>
+        <select id="modelSelect"></select>
+        <div class="modal-btn-row">
+            <button class="btn-test" id="fetchModelBtn">拉取模型 / 测试连接</button>
+        </div>
+        <div class="modal-btn-row">
+            <button class="btn-save-conf" id="saveConfigBtn">保存配置</button>
+            <button class="btn-close-modal" id="closeConfigModal">关闭</button>
+        </div>
+    </div>
+</div>
+
+<!--确认删除弹窗-->
+<div class="modal-overlay" id="confirmDelModal">
+    <div class="modal-content">
+        <h3>确认删除全部代码？</h3>
+        <p>此操作会清空代码编辑器全部内容，无法撤销！</p>
+        <div class="modal-btn-row">
+            <button class="btn-del-all" id="confirmDelYes">确认删除</button>
+            <button class="btn-close-modal" id="confirmDelNo">取消</button>
+        </div>
+    </div>
+</div>
+
+<!--手动复制保存弹窗（手机备用）-->
+<div class="modal-overlay" id="saveCopyModal">
+    <div class="modal-content">
+        <h3>保存HTML（手机复制）</h3>
+        <p>部分手机浏览器无法直接下载文件。复制全部代码，新建文本粘贴，后缀改为.html保存。</p>
+        <textarea id="saveCopyTextarea" style="min‑height:280px;"></textarea>
+        <div class="modal-btn-row">
+            <button id="copyCodeBtn" class="btn-save-conf">复制全部</button>
+            <button id="closeSaveCopyModal" class="btn-close-modal">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+//存储
+let appState = {
+    apiUrl:"",
+    apiKey:"",
+    selectedModel:"",
+    chatHistory:[],
+    currentHtmlCode:""
+};
+const lsKeyConf = "ai_code_editor_config";
+const lsKeyCode = "ai_code_editor_html";
+const lsChatHis = "ai_code_editor_chat";
+
+//DOM
+const configModal = document.getElementById("configModal");
+const openConfigBtn = document.getElementById("openConfigBtn");
+const closeConfigModal = document.getElementById("closeConfigModal");
+const apiUrlInput = document.getElementById("apiUrlInput");
+const apiKeyInput = document.getElementById("apiKeyInput");
+const modelSelect = document.getElementById("modelSelect");
+const fetchModelBtn = document.getElementById("fetchModelBtn");
+const saveConfigBtn = document.getElementById("saveConfigBtn");
+const codeEditorDom = document.getElementById("codeEditor");
+const lineNumberBox = document.getElementById("lineNumberBox");
+
+const saveCopyModal = document.getElementById("saveCopyModal");
+const saveCopyTextarea = document.getElementById("saveCopyTextarea");
+const copyCodeBtn = document.getElementById("copyCodeBtn");
+const closeSaveCopyModal = document.getElementById("closeSaveCopyModal");
+
+//更新左侧代码行号
+function updateLineNumbers(){
+    const text = codeEditorDom.value;
+    const lines = text.split("\n");
+    let numHtml = "";
+    for(let i=1;i<=lines.length;i++){
+        numHtml += i + "<br/>";
+    }
+    lineNumberBox.innerHTML = numHtml;
+}
+//行号和文本框滚动同步
+codeEditorDom.addEventListener('scroll', ()=>{
+    lineNumberBox.scrollTop = codeEditorDom.scrollTop;
+});
+
+//tab切换
+const tabs = document.querySelectorAll(".tab");
+tabs.forEach(t=>{
+    t.onclick = ()=>{
+        tabs.forEach(x=>x.classList.remove("active"));
+        t.classList.add("active");
+        const tabId = t.dataset.tab;
+        document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+        document.getElementById("panel-"+tabId).classList.add("active");
+    }
+})
+
+//加载本地存储
+function loadLocal(){
+    const confText = localStorage.getItem(lsKeyConf);
+    if(confText){
+        const c = JSON.parse(confText);
+        appState.apiUrl = c.apiUrl || "";
+        appState.apiKey = c.apiKey || "";
+        appState.selectedModel = c.model || "";
+        apiUrlInput.value = appState.apiUrl;
+        apiKeyInput.value = appState.apiKey;
+    }
+    const savedCode = localStorage.getItem(lsKeyCode);
+    if(savedCode){
+        appState.currentHtmlCode = savedCode;
+        codeEditorDom.value = savedCode;
+        updateLineNumbers();
+    }
+    const chatHisRaw = localStorage.getItem(lsChatHis);
+    if(chatHisRaw) appState.chatHistory = JSON.parse(chatHisRaw);
+    renderChat();
+}
+function saveConfigLocal(){
+    localStorage.setItem(lsKeyConf,JSON.stringify({
+        apiUrl:appState.apiUrl,
+        apiKey:appState.apiKey,
+        model:appState.selectedModel
+    }))
+}
+function saveCodeLocal(){
+    localStorage.setItem(lsKeyCode,appState.currentHtmlCode);
+}
+function saveChatHistoryLocal(){
+    localStorage.setItem(lsChatHis,JSON.stringify(appState.chatHistory));
+}
+
+//弹窗
+openConfigBtn.onclick = ()=> configModal.classList.add("show");
+closeConfigModal.onclick = ()=> configModal.classList.remove("show");
+
+saveConfigBtn.onclick = ()=>{
+    appState.apiUrl = apiUrlInput.value.trim();
+    appState.apiKey = apiKeyInput.value.trim();
+    if(modelSelect.value) appState.selectedModel = modelSelect.value;
+    saveConfigLocal();
+    alert("配置保存完成！");
+    configModal.classList.remove("show");
+}
+
+//拉取模型&测试连接（修复请求头bug，增加cors模式）
+fetchModelBtn.onclick = async ()=>{
+    const urlVal = apiUrlInput.value.trim();
+    const keyVal = apiKeyInput.value.trim();
+    if(!urlVal || !keyVal){
+        alert("请填写API地址与密钥！");
+        return;
+    }
+    try{
+        const res = await fetch(`${urlVal}/models`,{
+            method:"GET",
+            mode:"cors",
+            headers:{
+                "Authorization":`Bearer ${keyVal}`,
+                "Content-Type":"application/json"
+            }
+        });
+        if(!res.ok){
+            alert(`连接失败 status ${res.status}`);
+            return;
+        }
+        const jsonData = await res.json();
+        modelSelect.innerHTML = "";
+        jsonData.data.forEach(m=>{
+            const opt = document.createElement("option");
+            opt.innerText = m.id;
+            opt.value = m.id;
+            modelSelect.appendChild(opt);
+        })
+        alert("✅连接成功！模型列表获取完毕");
+    }catch(err){
+        alert("网络请求失败："+err.message);
+    }
+}
+
+//聊天渲染
+function renderChat(){
+    const chatWrap = document.getElementById("chatContainer");
+    chatWrap.innerHTML = "";
+    appState.chatHistory.forEach((msg,idx)=>{
+        const div = document.createElement("div");
+        div.className = msg.role === "user" ? "msg-item user-msg" : "msg-item ai-msg";
+        div.innerText = msg.content;
+        if(msg.role === "assistant"){
+            const applyBtn = document.createElement("button");
+            applyBtn.innerText = "应用这些代码";
+            applyBtn.className = "apply-code-btn";
+            applyBtn.onclick = ()=>{
+                const contentText = msg.content;
+                //简单提取html代码块 ```html ... ```
+                let htmlMatch = contentText.match(/```html([\s\S]*?)```/);
+                if(htmlMatch){
+                    appState.currentHtmlCode = htmlMatch[1];
+                }else{
+                    appState.currentHtmlCode = contentText;
+                }
+                codeEditorDom.value = appState.currentHtmlCode;
+                saveCodeLocal();
+                refreshPreview();
+                updateLineNumbers();
+                alert("✅代码已经应用到代码编辑器！");
+            }
+            div.appendChild(applyBtn);
+        }
+        chatWrap.appendChild(div);
+    })
+}
+
+//更新预览iframe
+function refreshPreview(){
+    const iframe = document.getElementById("previewIframe");
+    const errBox = document.getElementById("errorLogBox");
+    errBox.innerText = "";
+    try{
+        const blob = new Blob([appState.currentHtmlCode],{type:"text/html"});
+        const tempUrl = URL.createObjectURL(blob);
+        iframe.src = tempUrl;
+    }catch(e){
+        errBox.innerText = "预览错误："+e.toString();
+    }
+}
+
+//发送消息
+const sendBtn = document.getElementById("sendBtn");
+const chatInput = document.getElementById("chatInput");
+const imgUploadBtn = document.getElementById("uploadImgBtn");
+const imgFileInput = document.getElementById("imgFileInput");
+let selectedImageBase64 = null;
+
+imgUploadBtn.onclick = ()=> imgFileInput.click();
+imgFileInput.onchange = async (ev)=>{
+    const file = ev.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = res=>{
+        selectedImageBase64 = res.target.result;
+        alert("图片已选中，可以点发送提交！");
+    }
+}
+
+sendBtn.onclick = async ()=>{
+    const promptText = chatInput.value.trim();
+    if(!promptText && !selectedImageBase64) return;
+    if(!appState.apiUrl || !appState.apiKey || !appState.selectedModel){
+        alert("请先点左上角加号，配置API信息！");
+        return;
+    }
+    //组装消息
+    let userContent;
+    if(selectedImageBase64){
+        userContent = [
+            {"type":"text","text":promptText},
+            {"type":"image_url","image_url":{"url":selectedImageBase64}}
+        ]
+    }else{
+        userContent = promptText;
+    }
+    appState.chatHistory.push({role:"user",content:userContent});
+    chatInput.value = "";
+    selectedImageBase64 = null;
+    renderChat();
+    saveChatHistoryLocal();
+
+    //请求api，修复请求头，增加mode:cors
+    const messages = appState.chatHistory.map(x=>{return {...x}});
+    try{
+        const resp = await fetch(`${appState.apiUrl}/chat/completions`,{
+            method:"POST",
+            mode:"cors",
+            headers:{
+                "Authorization":`Bearer ${appState.apiKey}`,
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({
+                model:appState.selectedModel,
+                messages:messages,
+                temperature:0.6
+            })
+        });
+        if(!resp.ok) throw new Error("http status "+resp.status);
+        const resultJson = await resp.json();
+        const aiText = resultJson.choices[0].message.content;
+        appState.chatHistory.push({role:"assistant",content:aiText});
+        saveChatHistoryLocal();
+        renderChat();
+    }catch(err){
+        alert("AI请求失败："+err.message);
+    }
+}
+
+//代码编辑器输入，同步保存、预览、刷新行号
+codeEditorDom.oninput = ()=>{
+    appState.currentHtmlCode = codeEditorDom.value;
+    saveCodeLocal();
+    refreshPreview();
+    updateLineNumbers();
+}
+
+//删除全部确认弹窗
+const confirmDelModal = document.getElementById("confirmDelModal");
+document.getElementById("clearCodeBtn").onclick = ()=> confirmDelModal.classList.add("show");
+document.getElementById("confirmDelNo").onclick = ()=> confirmDelModal.classList.remove("show");
+document.getElementById("confirmDelYes").onclick = ()=>{
+    appState.currentHtmlCode = "";
+    codeEditorDom.value = "";
+    saveCodeLocal();
+    refreshPreview();
+    updateLineNumbers();
+    confirmDelModal.classList.remove("show");
+}
+
+//导入HTML文件
+document.getElementById("importHtmlBtn").onclick = ()=>{
+    document.getElementById("importFileInput").click();
+}
+document.getElementById("importFileInput").onchange = (evt)=>{
+    const f = evt.target.files[0];
+    if(!f) return;
+    const fr = new FileReader();
+    fr.readAsText(f);
+    fr.onload = res=>{
+        appState.currentHtmlCode = res.target.result;
+        codeEditorDom.value = appState.currentHtmlCode;
+        saveCodeLocal();
+        refreshPreview();
+        updateLineNumbers();
+        alert("✅导入成功");
+    }
+}
+
+//【修改后的保存按钮逻辑】
+document.getElementById("exportHtmlBtn").onclick = ()=>{
+    const codeText = appState.currentHtmlCode;
+    saveCopyTextarea.value = codeText;
+    saveCopyModal.classList.add("show");
+};
+copyCodeBtn.onclick = async ()=>{
+    try{
+        await navigator.clipboard.writeText(saveCopyTextarea.value);
+        alert("✅全部代码复制成功！\n手机新建文本文件，粘贴，把后缀名字改成 .html");
+        saveCopyModal.classList.remove("show");
+    }catch(err){
+        saveCopyTextarea.select();
+        alert("自动复制失败！请手动选中文本框复制全部内容");
+    }
+}
+closeSaveCopyModal.onclick = ()=>{
+    saveCopyModal.classList.remove("show");
+}
+
+//初始化
+loadLocal();
+refreshPreview();
+updateLineNumbers();
+</script>
+</body>
+</html>
